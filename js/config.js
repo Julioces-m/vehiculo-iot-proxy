@@ -1,7 +1,7 @@
 // Configura aquí la URL pública de tu proyecto Vercel, sin barra final.
 // Ejemplo: https://vehiculo-iot-proxy.vercel.app
 export const CONFIG = {
-  API_BASE: "https://REEMPLAZA-ESTO.vercel.app",
+  API_BASE: "https://excavadora-iot-backend-bridge.vercel.app",
   VEHICLE_ID: 1,
   WS_PATH: "/api/ws/vehiculos/1",
   REQUEST_TIMEOUT_MS: 10000,
