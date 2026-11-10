@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111315">
+  <meta name="description" content="Panel industrial de control para vehículo IoT.">
+  <title>VEHÍCULO IoT | Control industrial</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Inicio">
+        <span class="brand-mark">VI</span>
+        <span><strong>VEHÍCULO IoT</strong><small>INDUSTRIAL CONTROL SYSTEM</small></span>
+      </a>
+      <div class="header-meta">
+        <span class="vehicle-tag"><span class="dot dot-yellow"></span> UNIDAD 01</span>
+        <span class="live-clock" id="clock">--:--:--</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero-row">
+        <div>
+          <p class="eyebrow">CENTRO DE OPERACIONES / CONTROL REMOTO</p>
+          <h1>Panel de <span>operación</span></h1>
+          <p class="subheading">Control y supervisión del vehículo IoT en tiempo real.</p>
+        </div>
+        <div class="connection-strip" aria-live="polite">
+          <div class="connection" id="ws-indicator"><i class="status-dot"></i><span>WEBSOCKET</span><b>Sin conectar</b></div>
+          <div class="connection" id="api-indicator"><i class="status-dot"></i><span>API AWS</span><b>Sin verificar</b></div>
+          <div class="connection" id="db-indicator"><i class="status-dot"></i><span>RDS</span><b>Sin verificar</b></div>
+        </div>
+      </section>
+
+      <section class="main-grid">
+        <article class="panel control-panel">
+          <div class="panel-heading"><div><p class="eyebrow">01 / MOVILIDAD</p><h2>Control de desplazamiento</h2></div><span class="panel-code">CTRL-01</span></div>
+          <div class="drive-layout">
+            <div class="dpad" aria-label="Controles de desplazamiento">
+              <button class="control-key key-forward" data-command="1" data-name="AVANZAR" aria-label="Avanzar"><span>▲</span><small>AVANZAR</small></button>
+              <button class="control-key key-left" data-command="3" data-name="GIRAR_IZQUIERDA" aria-label="Girar a la izquierda"><span>◀</span><small>IZQUIERDA</small></button>
+              <button class="control-key key-stop" id="stop-button" data-command="11" data-name="DETENER" aria-label="Detener vehículo"><span>■</span><small>DETENER</small></button>
+              <button class="control-key key-right" data-command="4" data-name="GIRAR_DERECHA" aria-label="Girar a la derecha"><span>▶</span><small>DERECHA</small></button>
+              <button class="control-key key-back" data-command="2" data-name="RETROCEDER" aria-label="Retroceder"><span>▼</span><small>RETROCEDER</small></button>
+            </div>
+            <div class="drive-readout">
+              <span class="readout-label">ÚLTIMA ORDEN</span>
+              <strong id="last-command">NINGUNA</strong>
+              <span class="readout-line"></span>
+              <span class="readout-label">RESPUESTA API</span>
+              <p id="command-feedback" class="muted" role="status">Esperando una acción del operador.</p>
+              <p class="microcopy">Los controles envían órdenes al backend. Mantén el botón DETENER accesible durante la operación.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel tool-panel">
+          <div class="panel-heading"><div><p class="eyebrow">02 / IMPLEMENTOS</p><h2>Brazo y pala</h2></div><span class="panel-code">AUX-02</span></div>
+          <div class="tool-grid">
+            <button class="tool-button" data-command="5" data-name="SUBIR_BRAZO"><span class="tool-icon">↟</span><strong>Subir brazo</strong><small>CMD 05</small></button>
+            <button class="tool-button" data-command="6" data-name="BAJAR_BRAZO"><span class="tool-icon">↡</span><strong>Bajar brazo</strong><small>CMD 06</small></button>
+            <button class="tool-button" data-command="7" data-name="ABRIR_PALA"><span class="tool-icon">⇤</span><strong>Abrir pala</strong><small>CMD 07</small></button>
+            <button class="tool-button" data-command="8" data-name="CERRAR_PALA"><span class="tool-icon">⇥</span><strong>Cerrar pala</strong><small>CMD 08</small></button>
+          </div>
+          <div class="accessory-row">
+            <button class="accessory-button" data-command="9" data-name="LUZ"><span class="accessory-symbol">◉</span><span><strong>Luz</strong><small>LED / CMD 09</small></span><span class="accessory-action">ENVIAR</span></button>
+            <button class="accessory-button" data-command="10" data-name="SONIDO"><span class="accessory-symbol">♫</span><span><strong>Sonido</strong><small>BUZZER / CMD 10</small></span><span class="accessory-action">ENVIAR</span></button>
+          </div>
+        </article>
+
+        <article class="panel demo-panel">
+          <div class="panel-heading"><div><p class="eyebrow">03 / AUTOMATIZACIÓN</p><h2>Secuencias DEMO</h2></div><span class="panel-code">AUTO-03</span></div>
+          <label class="field-label" for="demo-select">SELECCIONAR SECUENCIA</label>
+          <div class="select-wrap"><select id="demo-select"><option value="">Cargando demos...</option></select><span>⌄</span></div>
+          <p id="demo-description" class="muted demo-description">Las secuencias disponibles se cargarán desde la API.</p>
+          <div class="demo-actions"><button class="button button-primary" id="run-demo">▶ EJECUTAR DEMO</button><button class="button button-danger-outline" id="cancel-demo">■ CANCELAR DEMO</button></div>
+          <div class="demo-status"><span class="status-dot" id="demo-status-dot"></span><div><small>ESTADO DE SECUENCIA</small><strong id="demo-status">SIN ACTIVIDAD</strong></div></div>
+          <p id="demo-feedback" class="microcopy" role="status">Esperando selección.</p>
+        </article>
+
+        <article class="panel event-panel">
+          <div class="panel-heading"><div><p class="eyebrow">04 / TELEMETRÍA</p><h2>Eventos WebSocket</h2></div><span class="panel-code">LOG-04</span></div>
+          <div class="event-toolbar"><span>FLUJO EN VIVO</span><button id="clear-events" class="text-button">LIMPIAR</button></div>
+          <div id="event-log" class="event-log" aria-live="polite"><div class="empty-log">Sin eventos recibidos todavía.</div></div>
+        </article>
+      </section>
+    </main>
+    <footer><span>VEHÍCULO IoT <b>•</b> INTERFAZ DE CONTROL</span><span>DESARROLLADO POR <strong>Julio César Meneses</strong></span></footer>
+  </div>
+  <div id="toast-region" class="toast-region" aria-live="polite"></div>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
