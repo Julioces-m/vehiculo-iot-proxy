@@ -1,7 +1,7 @@
 import { CONFIG } from "./config.js";
 import { api } from "./api.js";
 import { VehicleSocket } from "./websocket.js";
-import { setIndicator, toast, addEvent } from "./ui.js";
+import { setIndicator, toast } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
 let commandCodes = new Map();
@@ -14,6 +14,64 @@ function setBusy(button, busy, label) {
   if (label) button.textContent = label;
 }
 
+function formatHistoryDate(value) {
+  if (!value) return "Fecha no disponible";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("es-MX", { dateStyle: "short", timeStyle: "medium" });
+}
+
+function renderHistory(rows) {
+  const log = $("event-log");
+  log.replaceChildren();
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    log.append(Object.assign(document.createElement("div"), {
+      className: "empty-log",
+      textContent: "Todavía no hay movimientos registrados para este vehículo."
+    }));
+    return;
+  }
+
+  rows.slice(0, 10).forEach((record) => {
+    const item = document.createElement("div");
+    item.className = "event-item";
+
+    const time = document.createElement("span");
+    time.className = "event-time";
+    time.textContent = formatHistoryDate(record.fecha_hora);
+
+    const body = document.createElement("div");
+    body.className = "event-body";
+
+    const title = document.createElement("strong");
+    title.textContent = `MOVIMIENTO #${record.id_historial ?? "—"}`;
+
+    const detail = document.createElement("p");
+    const command = record.nombre_comando || record.comando || `Comando ID ${record.id_comando ?? "—"}`;
+    detail.textContent = `${command} · Origen: ${record.origen || "No especificado"}`;
+
+    body.append(title, detail);
+    item.append(time, body);
+    log.append(item);
+  });
+}
+
+async function loadHistory(showError = false) {
+  try {
+    const rows = await api.history(CONFIG.VEHICLE_ID);
+    renderHistory(rows);
+  } catch (error) {
+    if (showError) {
+      $("event-log").replaceChildren(Object.assign(document.createElement("div"), {
+        className: "empty-log",
+        textContent: `No se pudo cargar el historial: ${error.message}`
+      }));
+      toast(`Error al consultar historial: ${error.message}`, "error");
+    }
+  }
+}
+
 async function sendCommand(code, name) {
   const buttons = [...document.querySelectorAll("[data-command]")];
   const stop = code === 11;
@@ -24,6 +82,7 @@ async function sendCommand(code, name) {
     const result = await api.move(CONFIG.VEHICLE_ID, code);
     $("command-feedback").textContent = result?.mensaje || `Comando ${code} enviado.`;
     toast(result?.mensaje || `${name}: solicitud aceptada.`);
+    await loadHistory(false);
   } catch (error) {
     $("command-feedback").textContent = `Error: ${error.message}`;
     toast(`No se pudo enviar ${name}: ${error.message}`, "error");
@@ -77,6 +136,7 @@ async function runDemo() {
     $("demo-status").parentElement.parentElement.className = "demo-status running";
     $("demo-feedback").textContent = result?.mensaje || "Solicitud de ejecución enviada.";
     toast(result?.mensaje || "Demo iniciada.");
+    await loadHistory(false);
   } catch (error) {
     $("demo-feedback").textContent = `Error: ${error.message}`;
     toast(`No se pudo iniciar la demo: ${error.message}`, "error");
@@ -104,9 +164,7 @@ function initSocket() {
       setIndicator("ws-indicator", state === "connected" ? "ok" : state === "error" ? "bad" : "pending", labels[state] || state);
     },
     onMessage: (payload) => {
-      addEvent(payload);
-      // Los mensajes se registran como eventos. No se infiere el estado físico
-      // del vehículo hasta contar con un contrato de evento confirmado.
+      if (payload?.tipo_evento === "movimiento_individual") loadHistory(false);
     }
   });
   socket.connect();
@@ -123,7 +181,7 @@ async function init() {
   $("demo-select").addEventListener("change", updateDemoDescription);
   $("run-demo").addEventListener("click", runDemo);
   $("cancel-demo").addEventListener("click", cancelDemo);
-  $("clear-events").addEventListener("click", () => $("event-log").replaceChildren(Object.assign(document.createElement("div"), { className: "empty-log", textContent: "Sin eventos recibidos todavía." })));
+  $("refresh-history").addEventListener("click", () => loadHistory(true));
 
   try {
     await api.health();
@@ -131,13 +189,15 @@ async function init() {
   } catch {
     setIndicator("api-indicator", "bad", "Sin conexión");
   }
-  // /health no demuestra conectividad con RDS: se deja explícitamente sin verificar.
   setIndicator("db-indicator", "pending", "Sin verificar");
 
   try { await loadCommands(); }
   catch (error) { toast(`No se pudo cargar el catálogo: ${error.message}`, "error"); }
   try { await loadDemos(); }
   catch (error) { $("demo-select").replaceChildren(new Option("Error al cargar demos", "")); toast(error.message, "error"); }
+
+  await loadHistory(true);
+  setInterval(() => loadHistory(false), 10000);
   initSocket();
 }
 init();
