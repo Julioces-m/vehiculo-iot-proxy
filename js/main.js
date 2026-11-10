@@ -181,7 +181,7 @@ async function init() {
   $("demo-select").addEventListener("change", updateDemoDescription);
   $("run-demo").addEventListener("click", runDemo);
   $("cancel-demo").addEventListener("click", cancelDemo);
-  $("refresh-history").addEventListener("click", () => loadHistory(true));
+  $("refresh-history")?.addEventListener("click", () => loadHistory());
 
   try {
     await api.health();
