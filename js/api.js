@@ -26,6 +26,7 @@ export const api = {
   health: () => request("/health"),
   commands: (vehicleId) => request(`/api/v1/comandos/vehiculo/${vehicleId}`),
   demos: (vehicleId) => request(`/api/v1/demos/vehiculo/${vehicleId}`),
+  history: (vehicleId) => request(`/api/v1/historial/vehiculos/${vehicleId}`),
   move: (vehicleId, command) => request(`/api/v1/estado/vehiculos/${vehicleId}/movimiento`, {
     method: "POST", body: JSON.stringify({ comando: Number(command), origen: "Frontend" })
   }),
