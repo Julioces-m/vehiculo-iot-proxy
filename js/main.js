@@ -1,4 +1,4 @@
-
+﻿
 import { CONFIG } from "./config.js";
 import { api } from "./api.js";
 import { VehicleSocket } from "./websocket.js";
@@ -13,7 +13,7 @@ let dashboardInitialized = false;
 
 
 // ==========================================================
-// INTERFAZ DE AUTENTICACIÓN
+// INTERFAZ DE AUTENTICACIÃ“N
 // ==========================================================
 
 function showLogin() {
@@ -23,7 +23,7 @@ function showLogin() {
   $("login-password").value = "";
   $("login-error").hidden = true;
   $("login-submit").disabled = false;
-  $("login-submit").textContent = "INICIAR SESIÓN";
+  $("login-submit").textContent = "INICIAR SESIÃ“N";
 
   if (socket) {
     socket.disconnect();
@@ -74,14 +74,14 @@ async function handleLogin(event) {
 
     $("login-form").reset();
 
-    toast("Sesión iniciada correctamente.");
+    toast("SesiÃ³n iniciada correctamente.");
 
   } catch (err) {
-    error.textContent = err.message || "No fue posible iniciar sesión.";
+    error.textContent = err.message || "No fue posible iniciar sesiÃ³n.";
     error.hidden = false;
 
     button.disabled = false;
-    button.textContent = "INICIAR SESIÓN";
+    button.textContent = "INICIAR SESIÃ“N";
   }
 }
 
@@ -94,9 +94,9 @@ async function handleLogout() {
 
   try {
     await api.logout();
-    toast("Sesión cerrada correctamente.");
+    toast("SesiÃ³n cerrada correctamente.");
   } catch (error) {
-    toast(`No se pudo confirmar el cierre de sesión: ${error.message}`, "error");
+    toast(`No se pudo confirmar el cierre de sesiÃ³n: ${error.message}`, "error");
   } finally {
     showLogin();
   }
@@ -163,7 +163,7 @@ async function loadCommands() {
   const rows = await api.commands(CONFIG.VEHICLE_ID);
 
   if (!Array.isArray(rows)) {
-    throw new Error("El catálogo de comandos no devolvió una lista.");
+    throw new Error("El catÃ¡logo de comandos no devolviÃ³ una lista.");
   }
 
   commandCodes = new Map(
@@ -177,7 +177,7 @@ async function loadCommands() {
 
     if (!commandCodes.has(code)) {
       button.disabled = true;
-      button.title = "Comando no disponible en el catálogo activo";
+      button.title = "Comando no disponible en el catÃ¡logo activo";
     } else {
       button.disabled = false;
       button.title = "";
@@ -194,7 +194,7 @@ async function loadDemos() {
   demos = await api.demos(CONFIG.VEHICLE_ID);
 
   if (!Array.isArray(demos)) {
-    throw new Error("El catálogo de demos no devolvió una lista.");
+    throw new Error("El catÃ¡logo de demos no devolviÃ³ una lista.");
   }
 
   const select = $("demo-select");
@@ -212,7 +212,7 @@ async function loadDemos() {
 
   activeDemos.forEach((demo) => {
     const option = new Option(
-      `${demo.nombre} — ID ${demo.id_demo}`,
+      `${demo.nombre} â€” ID ${demo.id_demo}`,
       String(demo.id_demo)
     );
 
@@ -236,41 +236,178 @@ function updateDemoDescription() {
 }
 
 
-async function runDemo() {
-  const id = $("demo-select").value;
+let activeDemoId = null;
+let demoEventVersion = 0;
 
-  if (!id) {
-    return toast("Selecciona una demo.", "error");
+function setDemoStatus(label, stateClass, feedback) {
+  const status = $("demo-status");
+  if (!status) return;
+
+  status.textContent = label;
+
+  const root = status.parentElement?.parentElement;
+  if (root) {
+    root.className = "demo-status";
+    if (stateClass) root.classList.add(stateClass);
   }
 
+  if (feedback !== undefined && $("demo-feedback")) {
+    $("demo-feedback").textContent = feedback;
+  }
+}
+
+function handleDemoEvent(payload) {
+  if (!payload || typeof payload !== "object") return;
+  if (Number(payload.vehiculo_id) !== Number(CONFIG.VEHICLE_ID)) return;
+
+  const type = payload.tipo_evento;
+  const eventDemoId = Number(payload.demo_id);
+  const selectedDemoId = Number($("demo-select")?.value);
+
+  if (!Number.isFinite(eventDemoId)) return;
+
+  if (activeDemoId !== null) {
+    if (eventDemoId !== Number(activeDemoId)) return;
+  } else {
+    if (!selectedDemoId || eventDemoId !== selectedDemoId) return;
+  }
+
+  const knownEvents = [
+    "demo_inicio",
+    "demo_movimiento",
+    "demo_detener",
+    "demo_cancelada",
+    "demo_fin",
+    "demo_error"
+  ];
+
+  if (!knownEvents.includes(type)) return;
+
+  demoEventVersion++;
+
+  switch (type) {
+    case "demo_inicio":
+      setDemoStatus(
+        "EN EJECUCI?N",
+        "running",
+        `Demo ${eventDemoId} iniciada.`
+      );
+      break;
+
+    case "demo_movimiento":
+      setDemoStatus(
+        "MOVIMIENTO EN CURSO",
+        "running",
+        `Orden ${payload.orden ?? "?"}: ${payload.comando || payload.codigo || "Movimiento"}`
+      );
+      break;
+
+    case "demo_detener":
+      if (Number(payload.codigo) === 11 && payload.estado === "ejecutado") {
+        setDemoStatus(
+          "DETENCI?N CONFIRMADA",
+          "stopped",
+          "El veh?culo confirm? la ejecuci?n de DETENER."
+        );
+      } else {
+        setDemoStatus(
+          "DETENCI?N NO CONFIRMADA",
+          "unconfirmed",
+          "No se recibi? una confirmaci?n v?lida de DETENER."
+        );
+      }
+      break;
+
+    case "demo_cancelada":
+      if (payload.parada_confirmada === true) {
+        setDemoStatus(
+          "CANCELADA ? PARADA CONFIRMADA",
+          "stopped",
+          "La cancelaci?n termin? con parada confirmada."
+        );
+      } else {
+        setDemoStatus(
+          "CANCELADA ? PARADA NO CONFIRMADA",
+          "unconfirmed",
+          "La demo fue cancelada, pero no se confirm? la parada f?sica."
+        );
+      }
+      activeDemoId = null;
+      break;
+
+    case "demo_fin":
+      if (payload.parada_confirmada === true) {
+        setDemoStatus(
+          "FINALIZADA ? PARADA CONFIRMADA",
+          "stopped",
+          "La secuencia termin? y la parada fue confirmada."
+        );
+      } else {
+        setDemoStatus(
+          "FINALIZADA ? PARADA NO CONFIRMADA",
+          "unconfirmed",
+          "La secuencia termin? sin confirmar la parada f?sica."
+        );
+      }
+      activeDemoId = null;
+      break;
+
+    case "demo_error":
+      if (payload.parada_confirmada === true) {
+        setDemoStatus(
+          "ERROR ? VEH?CULO DETENIDO",
+          "error",
+          payload.error || "La demo present? un error; la parada fue confirmada."
+        );
+      } else {
+        setDemoStatus(
+          "ERROR ? PARADA NO CONFIRMADA",
+          "unconfirmed",
+          payload.error || "La demo present? un error y no se confirm? la parada."
+        );
+      }
+      activeDemoId = null;
+      break;
+  }
+}
+
+async function runDemo() {
+  const id = $("demo-select").value;
+  if (!id) return toast("Selecciona una demo.", "error");
+
+  const requestedDemoId = Number(id);
+  const eventVersionAtRequest = demoEventVersion;
   const button = $("run-demo");
+
+  activeDemoId = requestedDemoId;
+
+  setDemoStatus(
+    "SOLICITANDO EJECUCI?N",
+    "running",
+    "Enviando solicitud al backend..."
+  );
 
   setBusy(button, true);
 
   try {
     const result = await api.runDemo(id);
 
-    $("demo-status").textContent =
-      (result?.status || "en_proceso")
-        .toUpperCase()
-        .replaceAll("_", " ");
+    if (demoEventVersion === eventVersionAtRequest) {
+      setDemoStatus(
+        "SOLICITUD ACEPTADA ? ESPERANDO EVENTOS",
+        "running",
+        result?.mensaje || "Solicitud aceptada. Esperando confirmaci?n de ejecuci?n."
+      );
+    }
 
-    $("demo-status").parentElement.parentElement.className =
-      "demo-status running";
-
-    $("demo-feedback").textContent =
-      result?.mensaje || "Solicitud de ejecución enviada.";
-
-    toast(result?.mensaje || "Demo iniciada.");
-
+    toast(result?.mensaje || "Solicitud de ejecuci?n enviada.");
   } catch (error) {
-    $("demo-feedback").textContent = `Error: ${error.message}`;
+    if (activeDemoId === requestedDemoId) {
+      activeDemoId = null;
+      setDemoStatus("ERROR AL INICIAR", "error", `Error: ${error.message}`);
+    }
 
-    toast(
-      `No se pudo iniciar la demo: ${error.message}`,
-      "error"
-    );
-
+    toast(`No se pudo iniciar la demo: ${error.message}`, "error");
   } finally {
     setBusy(button, false);
   }
@@ -279,31 +416,33 @@ async function runDemo() {
 
 async function cancelDemo() {
   const button = $("cancel-demo");
+  const demoIdAtCancel = activeDemoId;
+  const eventVersionAtRequest = demoEventVersion;
 
   setBusy(button, true);
 
   try {
     const result = await api.cancelDemo(CONFIG.VEHICLE_ID);
 
-    $("demo-status").textContent =
-      (result?.status || "cancelada").toUpperCase();
+    if (demoEventVersion === eventVersionAtRequest) {
+      setDemoStatus(
+        "CANCELACI?N SOLICITADA",
+        "running",
+        result?.mensaje || "Solicitud enviada. Esperando confirmaci?n de parada."
+      );
+    }
 
-    $("demo-status").parentElement.parentElement.className =
-      "demo-status cancelled";
-
-    $("demo-feedback").textContent =
-      result?.mensaje || "Solicitud de cancelación enviada.";
-
-    toast(result?.mensaje || "Demo cancelada.");
-
+    toast(result?.mensaje || "Solicitud de cancelaci?n enviada.");
   } catch (error) {
-    $("demo-feedback").textContent = `Error: ${error.message}`;
+    if (activeDemoId === demoIdAtCancel) {
+      setDemoStatus(
+        "ERROR AL SOLICITAR CANCELACI?N",
+        "error",
+        `No se pudo solicitar la cancelaci?n: ${error.message}`
+      );
+    }
 
-    toast(
-      `No se pudo cancelar la demo: ${error.message}`,
-      "error"
-    );
-
+    toast(`No se pudo cancelar la demo: ${error.message}`, "error");
   } finally {
     setBusy(button, false);
   }
@@ -316,11 +455,15 @@ async function cancelDemo() {
 
 function initSocket() {
   socket = new VehicleSocket({
+    getAccessToken: () => api.getWebSocketAccessToken(),
+
     onStatus: (state) => {
       const labels = {
-        connected: "Conectado",
+        connected: "Autenticado",
         connecting: "Conectando...",
+        authenticating: "Autenticando...",
         disconnected: "Desconectado",
+        unauthorized: "AutenticaciÃ³n rechazada",
         error: "Error"
       };
 
@@ -328,7 +471,7 @@ function initSocket() {
         "ws-indicator",
         state === "connected"
           ? "ok"
-          : state === "error"
+          : state === "error" || state === "unauthorized"
             ? "bad"
             : "pending",
         labels[state] || state
@@ -337,6 +480,7 @@ function initSocket() {
 
     onMessage: (payload) => {
       addEvent(payload);
+      handleDemoEvent(payload);
     }
   });
 
@@ -351,7 +495,7 @@ function initSocket() {
 
 
 // ==========================================================
-// INICIALIZACIÓN DEL DASHBOARD
+// INICIALIZACIÃ“N DEL DASHBOARD
 // ==========================================================
 
 async function initDashboard() {
@@ -391,31 +535,35 @@ async function initDashboard() {
     $("event-log").replaceChildren(
       Object.assign(document.createElement("div"), {
         className: "empty-log",
-        textContent: "Sin eventos recibidos todavía."
+        textContent: "Sin eventos recibidos todavÃ­a."
       })
     );
   });
 
 
   try {
-    await api.health();
+    const health = await api.health();
 
     setIndicator("api-indicator", "ok", "Disponible");
 
+    const databaseConnected = health?.database === "conectado";
+
+    setIndicator(
+      "db-indicator",
+      databaseConnected ? "ok" : "bad",
+      databaseConnected ? "Conectado" : "Sin conexión"
+    );
+
   } catch {
     setIndicator("api-indicator", "bad", "Sin conexión");
+    setIndicator("db-indicator", "bad", "Sin conexión");
   }
-
-
-  setIndicator("db-indicator", "pending", "Sin verificar");
-
-
   try {
     await loadCommands();
 
   } catch (error) {
     toast(
-      `No se pudo cargar el catálogo: ${error.message}`,
+      `No se pudo cargar el catÃ¡logo: ${error.message}`,
       "error"
     );
   }
@@ -438,7 +586,7 @@ async function initDashboard() {
 
 
 // ==========================================================
-// ARRANQUE DE LA APLICACIÓN
+// ARRANQUE DE LA APLICACIÃ“N
 // ==========================================================
 
 async function init() {
@@ -460,10 +608,12 @@ async function init() {
     showLogin();
 
     console.warn(
-      "No se pudo recuperar la sesión:",
+      "No se pudo recuperar la sesiÃ³n:",
       error.message
     );
   }
 }
 
 init();
+
+
