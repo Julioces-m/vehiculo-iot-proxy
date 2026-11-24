@@ -1,9 +1,8 @@
-
 {
   "name": "vehiculo-iot-proxy",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "ws": "^8.18.3"
+    "ws": "^8.23.0"
   }
 }
